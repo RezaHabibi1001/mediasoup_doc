@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Media Server Documentation</title>
+  <style>
+    body{
+        padding: 10px;
+        line-height: 1.5;
+    }
+  
+  </style>
+</head>
+<body>
+    <h1 style="text-align: center; color: green;">This is the Documentation of Media Server ( Media Soup ) </h1>
+    <p>
+        This documentation provides an overview of  socket event handlers used in a media server application. These event handlers include "producerClosed", "exitRoom", "join", and  others. Each event handler serves a specific purpose, such as handling producer closure, user room exit, adding peers to rooms, and more. The documentation explains the code logic, usage, and provides code examples for each event handler. These socket event handlers are crucial for managing rooms, peers, and media streaming in the media server application. By understanding and implementing these event handlers effectively, developers can enhance the functionality and performance of their media server applications.
+    </p>
+    <span>The media server url is : <code>https://vitamoveapp.com</code> ( <a href="https://vitamoveapp.com/">Demo link</a> )</span>
+
+<hr>
+<!-- This is socket 1 -->
+<h1>Socket for Creating and Adding Rooms to Room List</h1>
+
+  <h3>Usage</h3>
+  <p>
+    To create a room and add it to the room list, emit the <code>createRoom</code> event to the server with the following payload:
+  </p>
+  <pre><code>
+{
+  room_id: "&lt;room_id&gt;"
+}
+  </code></pre>
+  <p>
+    The server will respond with a callback containing the result of the operation.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('createRoom', ...)</code> function listens for the <code>createRoom</code> event emitted by the client.
+    </li>
+    <li>
+      Upon receiving the event, the server checks if a room with the specified <code>room_id</code> already exists in the <code>roomList</code> map.
+    </li>
+    <li>
+      If the room already exists, the server responds to the client with the callback function, passing the string <code>'already exists'</code>.
+    </li>
+    <li>
+      If the room does not exist, the server logs a message indicating that a new room has been created, and then proceeds to perform the following steps:
+      <ul>
+        <li>
+          It calls the <code>getMediasoupWorker()</code> function asynchronously to obtain a Mediasoup worker instance. The details of this function are not provided in the code snippet.
+        </li>
+        <li>
+          It creates a new <code>Room</code> instance, passing in the <code>room_id</code>, obtained worker, and <code>io</code> (socket.io instance) as parameters.
+        </li>
+        <li>
+          It adds the newly created room to the <code>roomList</code> map, using the <code>room_id</code> as the key and the <code>Room</code> instance as the value.
+        </li>
+        <li>
+          Finally, it responds to the client with the callback function, passing the <code>room_id</code> as the result.
+        </li>
+      </ul>
+    </li>
+    <li>
+      If any error occurs during the process, an exception is thrown and caught by the surrounding <code>try-catch</code> block. The error is returned as a response.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <pre><code>
+// Client-side code
+const socket = io();
+
+socket.emit('createRoom', { room_id: "my_room" }, (result) => {
+  if (result === 'already exists') {
+    console.log('Room already exists');
+  } else {
+    console.log('Room created:', result);
+  }
+});
+  </code></pre>
+
+  <hr>
+  <!-- This is socket 2 -->
+  <h1>Socket for Adding a Peer to a Room</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for adding a peer to a specific room. The event is triggered when a client socket emits the <code>join</code> event to the server.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('join', ...)</code> function listens for the <code>join</code> event emitted by the client socket.
+    </li>
+    <li>
+      If the specified room does not exist in the <code>roomList</code>, the server invokes the callback function passed as the second parameter to the event listener, passing in an error object with a message indicating that the room does not exist.
+    </li>
+    <li>
+      If the specified room exists, the server creates a new <code>Peer</code> instance with the socket's ID and user's name, and adds it to the corresponding <code>Room</code> instance in the <code>roomList</code> by calling the <code>addPeer()</code> method.
+    </li>
+    <li>
+      The server sets the socket's <code>room_id</code> to the specified room ID.
+    </li>
+    <li>
+      The server invokes the callback function passed as the second parameter to the event listener, passing in the JSON representation of the corresponding <code>Room</code> instance in the <code>roomList</code>. This allows the client to receive information about the room and its peers.
+    </li>
+    <li>
+      If an error occurs during the handling process, an error object will be thrown and returned.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+  <pre>
+    <code>
+
+  // Emitting 'join' event to join a room
+  socket.emit('join', {
+    room_id: '1234',
+    name: 'John'
+  }, (response) => {
+    if (response.error) {
+      console.log(response.error)
+    } else {
+      console.log(response)
+    }
+  })
+    </code>
+  </pre>
+In this example, we emit a 'join' event to join the room with ID '1234' and name 'John'. The server responds with a JSON representation of the corresponding room in the roomList. If an error occurs, it will be logged to the console.
+
+
+<hr>
+<!-- This is socket 3 -->
+<h1>Socket for Listing All Producers for Newly Joined Users</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for listing all producers for newly joined users in a room. To retrieve the list of producers, emit the <code>getProducers</code> event to the server.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('getProducers', ...)</code> function listens for the <code>getProducers</code> event emitted by the client.
+    </li>
+    <li>
+      Upon receiving the event, the server checks if the socket's <code>room_id</code> exists in the <code>roomList</code> map. If it does not exist, the function returns and no further action is taken.
+    </li>
+    <li>
+      The server logs a message indicating that it is retrieving the producers for the newly joined user, along with the name of the user obtained from the <code>roomList</code>.
+    </li>
+    <li>
+      The server retrieves the list of producers associated with the room by calling the <code>getProducerListForPeer()</code> method on the corresponding <code>Room</code> instance in the <code>roomList</code>.
+    </li>
+    <li>
+      The server emits a <code>newProducers</code> event to the socket, sending the list of producers as the payload.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+
+  <pre>
+    <code>
+        // Client-side code
+        const socket = io();
+      
+        // Emit 'getProducers' event to retrieve producers
+        socket.emit('getProducers');
+      
+        // Listen for 'newProducers' event to receive the list of producers
+        socket.on('newProducers', (producerList) => {
+          // Handle received producer list
+          console.log('Received producers:', producerList);
+        });
+      
+    </code>
+  </pre>
+
+  <hr>
+  <!-- This is socket 4 -->
+  <h1>Socket for Returning Router RTP Capabilities</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for returning the router RTP capabilities for a room. To retrieve the RTP capabilities, emit the <code>getRouterRtpCapabilities</code> event to the server.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('getRouterRtpCapabilities', ...)</code> function listens for the <code>getRouterRtpCapabilities</code> event emitted by the client.
+    </li>
+    <li>
+      Upon receiving the event, the server logs a message indicating that it is retrieving the router RTP capabilities, along with the name of the user obtained from the <code>roomList</code>.
+    </li>
+    <li>
+      The server retrieves the router RTP capabilities associated with the socket's <code>room_id</code> by calling the <code>getRtpCapabilities()</code> method on the corresponding <code>Room</code> instance in the <code>roomList</code>.
+    </li>
+    <li>
+      The server responds to the client with the retrieved RTP capabilities by invoking the callback function passed as the second parameter to the event listener, passing in the RTP capabilities as an argument.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+
+<pre>
+    <code>
+        javascript
+        // Client-side code
+        const socket = io();
+      
+        // Emit 'getRouterRtpCapabilities' event to retrieve router RTP capabilities
+        socket.emit('getRouterRtpCapabilities', null, (rtpCapabilities) => {
+          // Handle retrieved RTP capabilities
+          console.log('Router RTP Capabilities:', rtpCapabilities);
+        });
+    </code>
+</pre>
+
+<hr>
+<!-- This is socke 5 -->
+<h1>Socket for Allowing Peer to Transport Its Data</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for allowing a peer to transport its data. To create a WebRTC transport, emit the <code>createWebRtcTransport</code> event to the server.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('createWebRtcTransport', ...)</code> function listens for the <code>createWebRtcTransport</code> event emitted by the client.
+    </li>
+    <li>
+      Upon receiving the event, the server logs a message indicating that it is creating a WebRTC transport, along with the name of the user obtained from the <code>roomList</code>.
+    </li>
+    <li>
+      The server creates a WebRTC transport for the peer associated with the socket's <code>room_id</code> by calling the <code>createWebRtcTransport()</code> method on the corresponding <code>Room</code> instance in the <code>roomList</code>, passing in the socket's <code>id</code> as a parameter.
+    </li>
+    <li>
+      The server responds to the client with the transport parameters by invoking the callback function passed as the second parameter to the event listener, passing in the parameters as an argument.
+    </li>
+    <li>
+      If an error occurs during the transport creation process, the server logs an error message and responds to the client with an error object containing the error message.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+  <pre>
+    <code>
+        // Client-side code
+        const socket = io();
+      
+        // Emit 'createWebRtcTransport' event to create a WebRTC transport
+        socket.emit('createWebRtcTransport', null, (transportParams) => {
+          // Handle retrieved transport parameters
+          console.log('WebRTC Transport Parameters:', transportParams);
+        });
+    </code>
+  </pre>
+
+  <hr>
+  <!-- This is socket 6 -->
+  <h1>Socket for Connecting Transport</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for connecting a transport. To connect a transport, emit the <code>connectTransport</code> event to the server, passing in the transport ID and DTLS parameters as arguments.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('connectTransport', ...)</code> function listens for the <code>connectTransport</code> event emitted by the client.
+    </li>
+    <li>
+      Upon receiving the event, the server logs a message indicating that it is connecting a transport, along with the name of the user obtained from the <code>roomList</code>.
+    </li>
+    <li>
+      The server checks if the socket's <code>room_id</code> exists in the <code>roomList</code> map. If it does not exist, the function returns and no further action is taken.
+    </li>
+    <li>
+      The server connects the peer's transport associated with the socket's <code>room_id</code>, <code>socket.id</code>, and the provided transport ID and DTLS parameters by calling the <code>connectPeerTransport()</code> method on the corresponding <code>Room</code> instance in the <code>roomList</code>.
+    </li>
+    <li>
+      The server responds to the client with a success message by invoking the callback function passed as the second parameter to the event listener, passing in the string "success" as an argument.
+    </li>
+    <li>
+      If an error occurs during the transport connection process, an error object will be thrown and returned.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+  <pre>
+    <code>
+        // Client-side code
+        const socket = io();
+      
+        // Emit 'connectTransport' event to connect a transport
+        socket.emit('connectTransport', { transport_id: 'some_transport_id', dtlsParameters: {...} }, (result) => {
+          // Handle result of transport connection
+          console.log('Transport connection result:', result);
+        });
+    </code>
+  </pre>
+
+  <hr>
+  <!-- This is socket 7 -->
+  <h1>Socket for Producing Media</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for producing media. To produce media, emit the <code>produce</code> event to the server, passing in the kind, RTP parameters, and producer transport ID as arguments.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('produce', ...)</code> function listens for the <code>produce</code> event emitted by the client.
+    </li>
+    <li>
+      Upon receiving the event, the server checks if the socket's <code>room_id</code> exists in the <code>roomList</code> map. If it does not exist, the function returns an error object indicating that the user is not in a room.
+    </li>
+    <li>
+      The server produces media for the peer associated with the socket's <code>room_id</code>, <code>socket.id</code>, and the provided producer transport ID and RTP parameters by calling the <code>produce()</code> method on the corresponding <code>Room</code> instance in the <code>roomList</code>, passing in the socket's ID, producer transport ID, RTP parameters, and kind as parameters. The method returns a unique ID for the produced media.
+    </li>
+    <li>
+      The server logs a message indicating that media has been produced, along with the type of media (kind), name of the user obtained from the <code>roomList</code>, and the unique ID assigned to the produced media.
+    </li>
+    <li>
+      The server responds to the client with an object containing the unique ID of the produced media by invoking the callback function passed as the second parameter to the event listener, passing in an object with a single property named "producer_id" whose value is the unique ID assigned to the produced media.
+    </li>
+    <li>
+      If an error occurs during the media production process, an error object will be thrown and returned.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+  <pre>
+    <code>
+        // Client-side code
+        const socket = io();
+      
+        const kind = 'video';
+        const rtpParameters = {...}; // Provide RTP parameters for the media
+        const producerTransportId = 'transport123'; // Provide the ID of the producer transport
+      
+        // Emit 'produce' event to produce media
+        socket.emit('produce', { kind, rtpParameters, producerTransportId }, (response) => {
+          if (response.error) {
+            console.error(response.error);
+          } else {
+            const producerId = response.producer_id;
+            console.log('Media produced with producer ID:', producerId);
+            // Continue with further actions
+          }
+        });
+    </code>
+  </pre>
+Remember to replace <code>{...}</code> with actual RTP parameters for your media and provide a valid producer transport ID.
+
+<hr>
+<!-- This is socket 8 -->
+<h1>Socket for Recording Media</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for recording media. To record media, emit the <code>record</code> event to the server, passing in the media data as an argument.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('record', ...)</code> function listens for the <code>record</code> event emitted by the client.
+    </li>
+    <li>
+      Upon receiving the event, the server checks if the name of the user associated with the socket's ID is equal to "123". If it is, the server pushes the media data into the <code>parts1</code> array and sets the value of <code>firstProducerName</code> to the name of the user obtained from the <code>roomList</code>. If it is not, the server pushes the media data into the <code>parts2</code> array and sets the value of <code>secondProducerName</code> to the name of the user obtained from the <code>roomList</code>.
+    </li>
+    <li>
+      If an error occurs during the media recording process, an error object will be thrown and returned.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+  <pre>
+    <code>
+        // Client-side code
+        const socket = io();
+      
+        // Record media
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        const recorder = new MediaRecorder(stream);
+        
+        recorder.ondataavailable = (event) => {
+          socket.emit('record', event.data);
+        };
+        
+        recorder.start();
+        
+        setTimeout(() => {
+          recorder.stop();
+          stream.getTracks().forEach(track => track.stop());
+        }, 10000); 
+    </code>
+  </pre>
+
+  <hr>
+  <!-- This is socket 9 -->
+  <h1>Socket for Consuming Media</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for consuming media. To consume media, emit the <code>consume</code> event to the server, passing in the consumer transport ID, producer ID, and RTP capabilities as arguments.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('consume', ...)</code> function listens for the <code>consume</code> event emitted by the client.
+    </li>
+    <li>
+      Upon receiving the event, the server consumes media for the peer associated with the socket's <code>room_id</code>, <code>socket.id</code>, and the provided consumer transport ID, producer ID, and RTP capabilities by calling the <code>consume()</code> method on the corresponding <code>Room</code> instance in the <code>roomList</code>, passing in the socket's ID, consumer transport ID, producer ID, and RTP capabilities as parameters. The method returns an object containing the ID of the consumed media and other relevant parameters.
+    </li>
+    <li>
+      The server logs a message indicating that media is being consumed, along with the name of the user obtained from the <code>roomList</code>, the unique ID of the producer associated with the consumed media, and the unique ID of the consumer associated with the consumed media.
+    </li>
+    <li>
+      The server responds to the client with an object containing the ID of the consumed media and other relevant parameters by invoking the callback function passed as the second parameter to the event listener, passing in the object returned by the <code>consume()</code> method.
+    </li>
+    <li>
+      If an error occurs during the media consumption process, an error object will be thrown and returned.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+  <pre>
+    <code>
+        // Client-side code
+        const socket = io();
+      
+        // Consume media
+        const consumerTransportId = 'your_consumer_transport_id';
+        const producerId = 'the_producer_id_you_want_to_consume';
+        const rtpCapabilities = 'your_rtp_capabilities';
+      
+        socket.emit('consume', { consumerTransportId, producerId, rtpCapabilities }, (params) => {
+          // Use params to create a consumer
+          const consumer = await transport.consume(params);
+        });
+    </code>
+  </pre>
+
+
+  <hr>
+  <!-- This is socket 10 -->
+  <h2>Socket for Resuming Media</h2>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for resuming media playback. To resume media, emit the <code>resume</code> event to the server, passing in the necessary data as an argument.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('resume', ...)</code> function listens for the <code>resume</code> event emitted by the client.
+    </li>
+    <li>
+      Upon receiving the event, the server resumes playback of the media associated with the current consumer by calling the <code>resume()</code> method on the <code>consumer</code> object. This assumes that the <code>consumer</code> object has been previously defined and is accessible within the scope of this event handler.
+    </li>
+    <li>
+      The server invokes the callback function passed as the second parameter to the event listener to notify the client that the media playback has been resumed.
+    </li>
+    <li>
+      If an error occurs during the resuming process, an error object will be thrown and returned.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+    <pre>
+        <code>
+            // Client-side code
+            const socket = io();
+          
+            // Resume media playback
+            socket.emit('resume', data, () => {
+              console.log('Media playback resumed');
+            });
+        </code>
+    </pre>
+
+    <hr>
+    <!-- This is socket 11 -->
+    <h1>Socket for Getting Room Information</h1>
+
+    <h3>Usage</h3>
+    <p>
+      This code snippet represents a socket event handler for retrieving information about a room. To get the room information, emit the <code>getMyRoomInfo</code> event to the server.
+    </p>
+  
+    <h3>Code Explanation</h3>
+    <ol>
+      <li>
+        The <code>socket.on('getMyRoomInfo', ...)</code> function listens for the <code>getMyRoomInfo</code> event emitted by the client.
+      </li>
+      <li>
+        Upon receiving the event, the server retrieves the information about the room associated with the socket's <code>room_id</code> by calling the <code>toJson()</code> method on the corresponding <code>Room</code> instance in the <code>roomList</code>. This method returns a JSON representation of the room's information.
+      </li>
+      <li>
+        The server responds to the client by invoking the callback function passed as the second parameter to the event listener, passing in the JSON representation of the room's information as an argument.
+      </li>
+      <li>
+        If an error occurs during the retrieval process, an error object will be thrown and returned.
+      </li>
+    </ol>
+  
+    <h3>Example</h3>
+    <p>Here's an example of how you can use this code snippet in your application:</p>
+    <pre>
+        <code>
+            // Client-side code
+            const socket = io();
+          
+            // Get room information
+            socket.emit('getMyRoomInfo', (_, roomInfo) => {
+              console.log('Room information:', roomInfo);
+            });
+        </code>
+    </pre>
+
+<hr>
+    <!-- This is socket 12 -->
+    <h1>Socket for Disconnecting</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for handling disconnection. The event is triggered when a client socket disconnects from the server.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('disconnect', ...)</code> function listens for the <code>disconnect</code> event emitted by the client socket.
+    </li>
+    <li>
+      Upon receiving the event, the server logs a message indicating that a user has disconnected, along with the name of the user obtained from the <code>roomList</code>. This assumes that the user's name is stored in the corresponding <code>Room</code> instance within the <code>roomList</code>.
+    </li>
+    <li>
+      If the socket does not have a <code>room_id</code>, the function returns early and no further action is taken.
+    </li>
+    <li>
+      If the socket has a <code>room_id</code>, the server removes the peer associated with the socket's ID from the corresponding <code>Room</code> instance in the <code>roomList</code> by calling the <code>removePeer()</code> method, passing in the socket's ID as a parameter.
+    </li>
+    <li>
+      If an error occurs during the disconnection process, an error object will be thrown and returned.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+  <pre>
+    <code>
+        // Client-side code
+        const socket = io();
+      
+        // Handle disconnection
+        socket.on('disconnect', () => {
+          console.log('User disconnected');
+          // Additional logic or actions can be implemented here
+        });
+    </code>
+  </pre>
+
+  <hr>
+  <!-- This is socket 13 -->
+  <h1>Socket for Handling Producer Closure</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for handling the closure of a producer. The event is triggered when a producer is closed by the client.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('producerClosed', ...)</code> function listens for the <code>producerClosed</code> event emitted by the client socket.
+    </li>
+    <li>
+      Upon receiving the event, the server checks if the name of the closed producer matches the name of the first producer. If they match, it stops recording and saves the video file.
+    </li>
+    <li>
+      The server then uses the FFmpeg library to merge the recorded videos into a single video file. The input videos are specified as <code>input1</code> and <code>input2</code>, and the output file is specified as <code>output</code>.
+    </li>
+    <li>
+      If the merging process completes successfully, a success message is logged. If an error occurs during the merging process, an error message is logged.
+    </li>
+    <li>
+      After the merging process (if applicable), a message is logged indicating that a producer has been closed, along with the name of the user obtained from the <code>roomList</code>. This assumes that the user's name is stored in the corresponding <code>Room</code> instance within the <code>roomList</code>.
+    </li>
+    <li>
+      Finally, the server calls the <code>closeProducer()</code> method on the corresponding <code>Room</code> instance in the <code>roomList</code>, passing in the socket's ID and producer ID as parameters to remove the closed producer from the room.
+    </li>
+    <li>
+      If an error occurs during the handling process, an error object will be thrown and returned.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+  <pre>
+    <code>
+        // Client-side code
+        const socket = io();
+      
+        // Handle producer closure
+        socket.on('producerClosed', ({ producer_id }) => {
+          // Additional logic or actions can be implemented here
+        });
+    </code>
+  </pre>
+
+  <hr>
+  <!-- This is socket 14 -->
+  <h1>Socket for Exiting a Room</h1>
+
+  <h3>Usage</h3>
+  <p>
+    This code snippet represents a socket event handler for handling the exit of a user from a room. The event is triggered when a client socket emits the <code>exitRoom</code> event to the server.
+  </p>
+
+  <h3>Code Explanation</h3>
+  <ol>
+    <li>
+      The <code>socket.on('exitRoom', ...)</code> function listens for the <code>exitRoom</code> event emitted by the client socket.
+    </li>
+    <li>
+      If the socket is not currently in a room, the server invokes the callback function passed as the second parameter to the event listener, passing in an error object with a message indicating that the user is not currently in a room.
+    </li>
+    <li>
+      If the socket is currently in a room, the server removes the peer associated with the socket's ID from the corresponding <code>Room</code> instance in the <code>roomList</code> by calling the <code>removePeer()</code> method, passing in the socket's ID as a parameter. If there are no more peers in the room after removing the peer associated with the socket's ID, the server deletes the corresponding <code>Room</code> instance from the <code>roomList</code>.
+    </li>
+    <li>
+      The server sets the socket's <code>room_id</code> to <code>null</code>.
+    </li>
+    <li>
+      The server invokes the callback function passed as the second parameter to the event listener, passing in a success message indicating that the user has successfully exited the room.
+    </li>
+    <li>
+      If an error occurs during the handling process, an error object will be thrown and returned.
+    </li>
+  </ol>
+
+  <h3>Example</h3>
+  <p>Here's an example of how you can use this code snippet in your application:</p>
+
+  <pre>
+    <code>
+        // Client-side code
+        const socket = io();
+      
+        // Handle exiting room
+        socket.emit('exitRoom', null, (response) => {
+          if (response.error) {
+            console.log(response.error);
+            // Additional error handling can be implemented here
+          } else {
+            console.log(response);
+            // Additional logic or actions can be implemented here
+          }
+        });
+    </code>
+  </pre>
+</body>
+</html>
